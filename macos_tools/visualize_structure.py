@@ -96,17 +96,21 @@ def visualize_pdb_html(pdb_path, output_html=None, analysis=None):
             <div id="viewer" style="height: 580px; width: 100%; padding: 10px; box-sizing: border-box;"></div>
             
             <div class="controls">
-                <button class="btn" onclick="viewer.setStyle({{'cartoon': {{'color': 'spectrum'}}}}); viewer.render();">Spectrum</button>
-                <button class="btn" onclick="viewer.setStyle({{'cartoon': {{'color': 'chain'}}}}); viewer.render();">By Chain</button>
-                <button class="btn" onclick="viewer.setStyle({{'cartoon': {{'color': 'ss'}}}}); viewer.render();">Secondary Structure</button>
-                <button class="btn" onclick="viewer.zoomTo(); viewer.render();">Reset View</button>
+                <button class="btn" onclick="setSpectrum()">Spectrum</button>
+                <button class="btn" onclick="setChain()">Solid Color</button>
+                <button class="btn" onclick="setSecondaryStructure()">Secondary Structure</button>
+                <button class="btn" onclick="setConfidence()">Confidence</button>
+                <button class="btn" onclick="resetView()">Reset View</button>
             </div>
         </div>
         
         <script>
+            // Global viewer variable for button access
+            let viewer;
+            
             // Wait for page to load completely
             window.addEventListener('load', function() {{
-                let viewer = $3Dmol.createViewer("viewer", {{
+                viewer = $3Dmol.createViewer("viewer", {{
                     defaultcolors: $3Dmol.rasmolElementColors
                 }});
                 
@@ -118,6 +122,45 @@ def visualize_pdb_html(pdb_path, output_html=None, analysis=None):
                 // Resize viewer to fit the smaller container properly
                 viewer.resize();
             }});
+            
+            // Button functions
+            function setSpectrum() {{
+                if (viewer) {{
+                    viewer.setStyle({{"cartoon": {{"color": "spectrum"}}}});
+                    viewer.render();
+                }}
+            }}
+            
+            function setChain() {{
+                if (viewer) {{
+                    // For single chain, use a solid color (cyan)
+                    viewer.setStyle({{"cartoon": {{"color": "cyan"}}}});
+                    viewer.render();
+                }}
+            }}
+            
+            function setSecondaryStructure() {{
+                if (viewer) {{
+                    // Secondary structure with manual colors
+                    viewer.setStyle({{"cartoon": {{"color": "magenta"}}}});
+                    viewer.render();
+                }}
+            }}
+            
+            function setConfidence() {{
+                if (viewer) {{
+                    // B-factor coloring (confidence in predictions)
+                    viewer.setStyle({{"cartoon": {{"colorscheme": "RdYlBu", "color": "white"}}}});
+                    viewer.render();
+                }}
+            }}
+            
+            function resetView() {{
+                if (viewer) {{
+                    viewer.zoomTo();
+                    viewer.render();
+                }}
+            }}
         </script>
     </body>
     </html>
