@@ -7,6 +7,7 @@ set -e  # Exit on any error
 # Parse command line arguments
 UPDATE_MODE=false
 HELP_MODE=false
+USE_MAMBA_RUN=false
 
 while getopts "uh" opt; do
     case $opt in
@@ -57,6 +58,16 @@ if [[ "$ARCH" != "arm64" ]]; then
 fi
 
 echo "📋 Checking prerequisites..."
+
+# Function to safely run commands in the target environment
+run_in_env() {
+    local env_name="$1"
+    shift
+    if ! mamba run -n "$env_name" "$@"; then
+        echo "❌ Failed to run command in environment $env_name: $*"
+        exit 1
+    fi
+}
 
 # Function to check if conda/mamba is available
 check_conda() {
@@ -139,26 +150,98 @@ fi
 # Activate environment and install additional packages
 echo "📦 Installing additional dependencies..."
 eval "$(mamba shell hook --shell bash)"
-mamba activate "$ENV_NAME"
+
+# Check if we're already in the target environment
+if [[ "$CONDA_DEFAULT_ENV" != "$ENV_NAME" ]]; then
+    echo "🔄 Activating environment $ENV_NAME..."
+    mamba activate "$ENV_NAME"
+else
+    echo "✅ Already in environment $ENV_NAME"
+fi
+
+# Verify we're in the correct environment
+echo "🔍 Verifying environment activation..."
+# Use a more reliable method to check current environment
+if [[ "$CONDA_DEFAULT_ENV" == "$ENV_NAME" ]]; then
+    echo "✅ Successfully activated environment: $ENV_NAME"
+elif conda info --envs | grep -E "^\s*$ENV_NAME\s+\*" > /dev/null; then
+    echo "✅ Environment $ENV_NAME is active"
+else
+    echo "⚠️  Environment activation uncertain, using mamba run for safety"
+    echo "   CONDA_DEFAULT_ENV: $CONDA_DEFAULT_ENV"
+    echo "   Will use 'mamba run -n $ENV_NAME' for all operations"
+    USE_MAMBA_RUN=true
+fi
 
 # Install pip dependencies that need special handling
-pip install py-cpuinfo
-pip install "numpy<2"
-pip install dm-tree==0.1.6
-pip install git+https://github.com/NVIDIA/dllogger.git
+echo "📦 Installing/updating pip dependencies..."
+if [[ "$USE_MAMBA_RUN" == "true" ]]; then
+    echo "� Using mamba run for pip installations..."
+    mamba run -n "$ENV_NAME" pip install py-cpuinfo
+    mamba run -n "$ENV_NAME" pip install "numpy<2"
+    mamba run -n "$ENV_NAME" pip install dm-tree==0.1.6
+    mamba run -n "$ENV_NAME" pip install git+https://github.com/NVIDIA/dllogger.git
+else
+    # Verify pip is from the correct environment
+    PIP_PATH=$(which pip)
+    EXPECTED_PIP_PATH="$HOME/miniconda3/envs/$ENV_NAME/bin/pip"
+    if [[ "$PIP_PATH" != "$EXPECTED_PIP_PATH" ]]; then
+        echo "⚠️  Warning: pip path mismatch, using mamba run instead"
+        echo "   Expected: $EXPECTED_PIP_PATH"
+        echo "   Found: $PIP_PATH"
+        mamba run -n "$ENV_NAME" pip install py-cpuinfo
+        mamba run -n "$ENV_NAME" pip install "numpy<2"
+        mamba run -n "$ENV_NAME" pip install dm-tree==0.1.6
+        mamba run -n "$ENV_NAME" pip install git+https://github.com/NVIDIA/dllogger.git
+    else
+        echo "✅ Pip is correctly using environment: $ENV_NAME"
+        pip install py-cpuinfo
+        pip install "numpy<2"
+        pip install dm-tree==0.1.6
+        pip install git+https://github.com/NVIDIA/dllogger.git
+    fi
+fi
 
 echo "🧪 Testing installation..."
-python -c "import torch, deepspeed, numpy, openmm; print('✅ Core packages imported successfully')"
-python -c "import openfold; print('✅ OpenFold imported successfully')"
+if [[ "$USE_MAMBA_RUN" == "true" ]]; then
+    echo "📦 Using mamba run for testing..."
+    mamba run -n "$ENV_NAME" python -c "import torch, deepspeed, numpy, openmm; print('✅ Core packages imported successfully')"
+    mamba run -n "$ENV_NAME" python -c "import openfold; print('✅ OpenFold imported successfully')"
+else
+    # Ensure we're using the correct Python interpreter
+    PYTHON_PATH=$(which python)
+    EXPECTED_PYTHON_PATH="$HOME/miniconda3/envs/$ENV_NAME/bin/python"
+    if [[ "$PYTHON_PATH" != "$EXPECTED_PYTHON_PATH" ]]; then
+        echo "⚠️  Warning: Python path mismatch, using mamba run instead"
+        mamba run -n "$ENV_NAME" python -c "import torch, deepspeed, numpy, openmm; print('✅ Core packages imported successfully')"
+        mamba run -n "$ENV_NAME" python -c "import openfold; print('✅ OpenFold imported successfully')"
+    else
+        echo "✅ Using correct Python interpreter: $PYTHON_PATH"
+        python -c "import torch, deepspeed, numpy, openmm; print('✅ Core packages imported successfully')"
+        python -c "import openfold; print('✅ OpenFold imported successfully')"
+    fi
+fi
+
+echo ""
+echo "🔍 Environment Details:"
+echo "   Environment name: $ENV_NAME"
+echo "   Python path: $(mamba run -n "$ENV_NAME" which python)"
+echo "   Pip path: $(mamba run -n "$ENV_NAME" which pip)"
+echo "   PyTorch version: $(mamba run -n "$ENV_NAME" python -c "import torch; print(torch.__version__)")"
+echo "   NumPy version: $(mamba run -n "$ENV_NAME" python -c "import numpy; print(numpy.__version__)")"
 
 echo ""
 echo "🎉 Installation completed successfully!"
 echo ""
 echo "To use OpenFold:"
 echo "  1. Activate the environment: mamba activate $ENV_NAME"
-echo "  2. Run OpenFold scripts as documented in README_MACOS.md"
+echo "  2. Verify activation: which python (should show the environment path)"
+echo "  3. Run OpenFold scripts as documented in README_MACOS.md"
 echo ""
 echo "📚 For detailed usage instructions, see README_MACOS.md"
 echo ""
-echo "⚠️  Note: CUDA extensions will not compile on macOS (this is expected)"
-echo "   OpenFold will automatically use Python fallbacks"
+echo "✅ Installation Notes:"
+echo "   • CUDA extensions are not available on macOS (expected)"
+echo "   • OpenFold will automatically use CPU/PyTorch fallbacks"
+echo "   • MPS (Apple Silicon GPU) acceleration is available for compatible operations"
+echo "   • Performance will be slower than CUDA systems but fully functional"

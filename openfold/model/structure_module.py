@@ -44,7 +44,13 @@ from openfold.utils.tensor_utils import (
     flatten_final_dims,
 )
 
-attn_core_inplace_cuda = importlib.import_module("attn_core_inplace_cuda")
+# Try to import CUDA extension, fall back if not available
+try:
+    attn_core_inplace_cuda = importlib.import_module("attn_core_inplace_cuda")
+    STRUCTURE_CUDA_AVAILABLE = True
+except (ImportError, ModuleNotFoundError):
+    attn_core_inplace_cuda = None
+    STRUCTURE_CUDA_AVAILABLE = False
 
 
 class AngleResnetBlock(nn.Module):
@@ -432,7 +438,7 @@ class InvariantPointAttention(nn.Module):
         # [*, H, N_res, N_res]
         pt_att = permute_final_dims(pt_att, (2, 0, 1))
 
-        if (inplace_safe):
+        if (inplace_safe and STRUCTURE_CUDA_AVAILABLE):
             a += pt_att
             del pt_att
             a += square_mask.unsqueeze(-3)

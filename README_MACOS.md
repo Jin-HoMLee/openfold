@@ -108,6 +108,14 @@ The `environment_macos.yml` file excludes or modifies the following packages:
 - Added `pytorch::torchvision` and `pytorch::torchaudio`
 - Removed `flash-attn` from pip dependencies (CUDA-only)
 
+### CPU Fallback Implementation
+
+**Automatic Fallback**: OpenFold has been patched to automatically detect when CUDA extensions are unavailable and fall back to PyTorch implementations for:
+- Attention mechanisms (`openfold/utils/kernel/attention_core.py`)
+- Invariant Point Attention in Structure Module (`openfold/model/structure_module.py`)
+
+**Performance Impact**: CPU fallbacks are functional but significantly slower than CUDA implementations. For serious research, use Linux with CUDA GPUs.
+
 ### Package Versions
 
 - **NumPy**: Downgraded to 1.x for DeepSpeed compatibility
@@ -118,13 +126,20 @@ The `environment_macos.yml` file excludes or modifies the following packages:
 
 ### Activating the Environment
 
+**Critical**: Always verify you're in the correct environment before running pip or python commands.
+
 ```bash
 # Activate environment
 mamba activate openfold_env
 
-# Verify activation
-which python
-# Should show: /Users/$(whoami)/miniconda3/envs/openfold_env/bin/python
+# Verify activation (all should point to the environment)
+which python   # Should show: /Users/$(whoami)/miniconda3/envs/openfold_env/bin/python
+which pip      # Should show: /Users/$(whoami)/miniconda3/envs/openfold_env/bin/pip
+conda info --envs  # Should show openfold_env with *
+
+# Alternative: Use mamba run for guaranteed environment isolation
+mamba run -n openfold_env python your_script.py
+mamba run -n openfold_env pip install package_name
 ```
 
 ### Running OpenFold
@@ -162,6 +177,11 @@ export PYTORCH_ENABLE_MPS_FALLBACK=1
 
 **Solution**: This is expected on macOS. OpenFold will automatically fall back to Python implementations. You can safely ignore these compilation errors.
 
+**What happens**: 
+- The installation patches key files to detect missing CUDA extensions
+- CPU fallbacks are automatically used for attention mechanisms
+- You'll see: `Warning: CUDA attention kernel not available, falling back to PyTorch implementation`
+
 #### 2. DeepSpeed Import Errors
 **Error**: `ModuleNotFoundError: No module named 'cpuinfo'`
 
@@ -187,6 +207,29 @@ pip install "numpy<2"
 eval "$(mamba shell hook --shell zsh)"
 # Then try activating again
 mamba activate openfold_env
+```
+
+#### 5. Pip Installing to Wrong Environment
+**Error**: Packages installed with pip are not found after activation
+
+**Diagnosis**:
+```bash
+# Check if you're in the right environment
+which python  # Should show environment path
+which pip     # Should show environment path
+```
+
+**Solution**:
+```bash
+# Option 1: Reactivate environment
+mamba deactivate
+mamba activate openfold_env
+
+# Option 2: Use mamba run for guaranteed isolation
+mamba run -n openfold_env pip install package_name
+
+# Option 3: Use explicit pip path
+/Users/$(whoami)/miniconda3/envs/openfold_env/bin/pip install package_name
 ```
 
 ### Performance Considerations

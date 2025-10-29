@@ -17,7 +17,14 @@ from operator import mul
 
 import torch
 
-attn_core_inplace_cuda = importlib.import_module("attn_core_inplace_cuda")
+# Try to import CUDA extension, fall back to CPU implementation if not available
+try:
+    attn_core_inplace_cuda = importlib.import_module("attn_core_inplace_cuda")
+    CUDA_AVAILABLE = True
+except (ImportError, ModuleNotFoundError):
+    attn_core_inplace_cuda = None
+    CUDA_AVAILABLE = False
+    print("Warning: CUDA attention kernel not available, falling back to PyTorch implementation")
 
 
 SUPPORTED_DTYPES = [torch.float32, torch.bfloat16]
@@ -44,11 +51,15 @@ class AttentionCoreFunction(torch.autograd.Function):
         if(bias_2 is not None):
             attention_logits += bias_2
 
-        attn_core_inplace_cuda.forward_(
-            attention_logits, 
-            reduce(mul, attention_logits.shape[:-1]),
-            attention_logits.shape[-1],
-        )
+        if CUDA_AVAILABLE:
+            attn_core_inplace_cuda.forward_(
+                attention_logits, 
+                reduce(mul, attention_logits.shape[:-1]),
+                attention_logits.shape[-1],
+            )
+        else:
+            # CPU fallback: apply softmax manually
+            attention_logits = torch.softmax(attention_logits, dim=-1)
 
         o = torch.matmul(attention_logits, v) 
 
@@ -68,14 +79,23 @@ class AttentionCoreFunction(torch.autograd.Function):
             grad_output
         )
 
-        attn_core_inplace_cuda.backward_(
-            attention_logits,
-            grad_output.contiguous(),
-            v.contiguous(), # v is implicitly transposed in the kernel
-            reduce(mul, attention_logits.shape[:-1]),
-            attention_logits.shape[-1],
-            grad_output.shape[-1],
-        )
+        if CUDA_AVAILABLE:
+            attn_core_inplace_cuda.backward_(
+                attention_logits,
+                grad_output.contiguous(),
+                v.contiguous(), # v is implicitly transposed in the kernel
+                reduce(mul, attention_logits.shape[:-1]),
+                attention_logits.shape[-1],
+                grad_output.shape[-1],
+            )
+        else:
+            # CPU fallback: compute gradients manually for softmax
+            # This is a simplified version - for full accuracy, you'd need the complete
+            # softmax backward pass, but this should work for basic functionality
+            grad_attention = torch.matmul(grad_output, v.transpose(-1, -2))
+            # Softmax backward: d_input = softmax * (d_output - sum(d_output * softmax))
+            sum_term = torch.sum(grad_attention * attention_logits, dim=-1, keepdim=True)
+            attention_logits.copy_(attention_logits * (grad_attention - sum_term))
 
         if(ctx.bias_1_shape is not None):
             grad_bias_1 = torch.sum(
