@@ -1,10 +1,25 @@
-# macOS Development Tools
+# macOS Tools for OpenFold
 
-This directory contains macOS-specific tools and tests for OpenFold development.
+This directory contains macOS-specific tools for OpenFold installation, testing, and inference.
 
-## Files
+## Quick Start
 
-### `simple_model_test.py`
+```bash
+# 1. Test basic functionality
+./macos_tools/run_tests.sh simple
+
+# 2. Download required template files
+./macos_tools/download_templates.sh
+
+# 3. Run protein structure prediction
+./macos_tools/openfold_inference.sh
+```
+
+## Tools Overview
+
+### 🧪 **Testing Tools**
+
+#### `simple_model_test.py`
 **Purpose**: Quick verification that OpenFold can be imported and instantiated on macOS.
 
 **Usage**:
@@ -20,33 +35,59 @@ python macos_tools/simple_model_test.py
 - ✅ Parameter counting
 - ✅ CPU device compatibility
 
-**When to use**:
-- After installation to verify basic functionality
-- After updates to check if core functionality still works
-- When debugging import issues
-- For quick smoke tests
-
-### `test_model_macos.py`
+#### `test_model_macos.py`
 **Purpose**: macOS-compatible version of model tests that use CPU/MPS instead of CUDA.
-
-**Usage**:
-```bash
-conda activate openfold_env
-python macos_tools/test_model_macos.py
-```
-
-**What it tests**:
-- Model forward pass with realistic batch data
-- CPU/MPS device compatibility
-- Full inference pipeline
-- Sequence embedding mode
 
 **Status**: 🚧 Work in progress - needs debugging for full batch processing
 
-**When to use**:
-- For more comprehensive testing than the simple test
-- When developing macOS-specific features
-- For debugging model execution issues
+#### `run_tests.sh`
+**Purpose**: Convenient test runner with environment checking.
+
+**Usage**:
+```bash
+./macos_tools/run_tests.sh [simple|full|both|help]
+```
+
+### 🚀 **Inference Tools**
+
+#### `openfold_inference.sh` ⭐ **Main Tool**
+**Purpose**: Complete OpenFold inference runner for macOS with proper error handling.
+
+**Usage**:
+```bash
+# Basic usage (uses examples)
+./macos_tools/openfold_inference.sh
+
+# Custom input/output
+./macos_tools/openfold_inference.sh my_fastas/ my_results/
+
+# Use MPS device (Apple Silicon GPU)
+./macos_tools/openfold_inference.sh -d mps
+
+# Show all options
+./macos_tools/openfold_inference.sh --help
+```
+
+**Features**:
+- ✅ Automatic device detection (CPU/MPS)
+- ✅ Input validation and error checking
+- ✅ Progress tracking and timing
+- ✅ Flexible input/output paths
+- ✅ Built-in help and examples
+
+#### `download_templates.sh`
+**Purpose**: Automatically downloads required mmCIF template files based on alignment data.
+
+**Usage**:
+```bash
+./macos_tools/download_templates.sh
+```
+
+**What it does**:
+- Scans precomputed alignments for required PDB templates
+- Downloads missing mmCIF files from RCSB PDB
+- Skips already downloaded files
+- Provides download progress and summary
 
 ## Background
 

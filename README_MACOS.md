@@ -277,9 +277,21 @@ mamba activate openfold_env
 
 # Run simple test (recommended)
 ./macos_tools/run_tests.sh simple
+```
 
-# Or run directly
-python macos_tools/simple_model_test.py
+### Running Protein Structure Prediction
+```bash
+# 1. Download required template files (first time only)
+./macos_tools/download_templates.sh
+
+# 2. Run inference on example protein
+./macos_tools/openfold_inference.sh
+
+# 3. Check results in examples/monomer/macos_prediction/
+ls examples/monomer/macos_prediction/predictions/
+
+# 4. Or with custom input
+./macos_tools/openfold_inference.sh my_fasta_dir/ my_results/
 ```
 
 ### macOS-Specific Test Tools
