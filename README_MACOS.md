@@ -268,14 +268,42 @@ mamba activate openfold_env
 pip install package_name
 ```
 
+## Testing Your Installation
+
+### Quick Verification
+```bash
+# Activate environment
+mamba activate openfold_env
+
+# Run simple test (recommended)
+./macos_tools/run_tests.sh simple
+
+# Or run directly
+python macos_tools/simple_model_test.py
+```
+
+### macOS-Specific Test Tools
+The `macos_tools/` directory contains macOS-compatible tests:
+
+- **`simple_model_test.py`**: Quick verification that OpenFold works
+- **`test_model_macos.py`**: More comprehensive CPU/MPS tests (WIP)
+- **`run_tests.sh`**: Convenient test runner script
+
+**Why separate tools?** The original tests in `tests/` are hardcoded for CUDA and will fail on macOS. These tools provide macOS-compatible alternatives.
+
 ## File Structure
 
 ```
 openfold/
 ├── environment.yml           # Original Linux/CUDA environment
-├── environment_macos.yml     # macOS-compatible environment (created)
+├── environment_macos.yml     # macOS-compatible environment
 ├── README.md                # Original README
 ├── README_MACOS.md          # This file
+├── macos_tools/             # macOS-specific development tools
+│   ├── simple_model_test.py # Quick verification test
+│   ├── test_model_macos.py  # Comprehensive CPU/MPS tests
+│   ├── run_tests.sh         # Test runner script
+│   └── README.md            # Tool documentation
 └── ... (other OpenFold files)
 ```
 
