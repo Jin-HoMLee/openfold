@@ -90,14 +90,25 @@ check_mamba() {
 }
 
 # Install or update Miniconda
-if ! check_conda || [ "$UPDATE_MODE" = true ]; then
-    if [ "$UPDATE_MODE" = true ] && check_conda; then
-        echo "📥 Updating Miniconda (force reinstall)..."
-        # Remove existing installation
-        rm -rf "$HOME/miniconda3"
-    else
-        echo "📥 Installing Miniconda..."
+if ! check_conda; then
+    echo "📥 Installing Miniconda..."
+    curl -O https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-arm64.sh
+    bash Miniconda3-latest-MacOSX-arm64.sh -b -p "$HOME/miniconda3"
+    rm Miniconda3-latest-MacOSX-arm64.sh
+    
+    # Initialize conda
+    eval "$($HOME/miniconda3/bin/conda shell.bash hook)"
+    
+    # Add to shell profile if not already present
+    if ! grep -q 'miniconda3/bin/conda shell.zsh hook' ~/.zshrc 2>/dev/null; then
+        echo 'eval "$($HOME/miniconda3/bin/conda shell.zsh hook)"' >> ~/.zshrc
     fi
+    
+    echo "✅ Miniconda installed successfully"
+elif [ "$UPDATE_MODE" = true ]; then
+    echo "📥 Force updating Miniconda (reinstall)..."
+    # Remove existing installation
+    rm -rf "$HOME/miniconda3"
     
     curl -O https://repo.anaconda.com/miniconda/Miniconda3-latest-MacOSX-arm64.sh
     bash Miniconda3-latest-MacOSX-arm64.sh -b -p "$HOME/miniconda3"
@@ -111,8 +122,9 @@ if ! check_conda || [ "$UPDATE_MODE" = true ]; then
         echo 'eval "$($HOME/miniconda3/bin/conda shell.zsh hook)"' >> ~/.zshrc
     fi
     
-    echo "✅ Miniconda installed/updated successfully"
+    echo "✅ Miniconda updated successfully"
 else
+    echo "✅ Miniconda already installed"
     # Make sure conda is initialized
     eval "$(conda shell.bash hook 2>/dev/null || echo '')"
 fi
